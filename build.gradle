@@ -7,36 +7,38 @@ plugins {
     id 'distribution'
 }
 
-apply plugin: 'java'
-apply plugin: 'idea'
-apply plugin: 'eclipse'
-apply plugin: 'maven-publish'
-apply plugin: 'jacoco'
-apply plugin: 'distribution'
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(8)
+    }
+}
 
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
-
-tasks.withType(JavaCompile) { options.encoding = "UTF-8" }
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = "UTF-8"
+}
 
 repositories {
     mavenCentral()
 }
 
 sourceSets {
-    main.java.srcDirs += 'toolsrc'
+    main {
+        java {
+            srcDirs += 'toolsrc'
+        }
+    }
 }
 
 dependencies {
-    testCompile "junit:junit:4.12"
-    testCompile "org.yaml:snakeyaml:1.15"
-    testCompile "net.trajano.caliper:caliper:1.2.1"
+    testImplementation "junit:junit:4.12"
+    testImplementation "org.yaml:snakeyaml:1.15"
+    testImplementation "net.trajano.caliper:caliper:1.2.1"
 }
 
 test {
     exclude '**/*'
-//    include '**/Test262SuiteTest*'
     useJUnit()
+
     exclude "**/benchmarks/**"
 
     jacoco.excludes = ['**/testsrc_tests_ecma_3_RegExp_perlstress*']
@@ -48,25 +50,24 @@ test {
     systemProperty 'user.country', 'US'
     systemProperty 'user.timezone', 'America/Los_Angeles'
     systemProperty 'file.encoding', 'UTF-8'
+
     maxHeapSize = "1g"
     testLogging.showStandardStreams = true
-    // Many tests do not clean up contexts properly. This makes the tests much
-    // more resilient at the expense of performance.
     forkEvery = 1
     maxParallelForks = 10
 }
 
-task sunSpiderBenchmark(type: JavaExec) {
-    main "com.google.caliper.runner.CaliperMain"
+tasks.register("sunSpiderBenchmark", JavaExec) {
+    mainClass = "com.google.caliper.runner.CaliperMain"
     systemProperty 'rhino.benchmark.report', "${buildDir.absolutePath}"
-    args "-Cresults.upload.class=org.mozilla.javascript.benchmarks.ResultPlotter", "-i", "runtime", "org.mozilla.javascript.benchmarks.CaliperSpiderBenchmark.Spider"
-    classpath sourceSets.test.runtimeClasspath
+    args "-Cresults.upload.class=org.mozilla.javascript.benchmarks.ResultPlotter",
+            "-i", "runtime",
+            "org.mozilla.javascript.benchmarks.CaliperSpiderBenchmark.Spider"
+    classpath = sourceSets.test.runtimeClasspath
 }
 
-task v8Benchmark(type: Test) {
-    jacoco {
-        enabled = false
-    }
+tasks.register("v8Benchmark", Test) {
+    jacoco.enabled = false
     include "**/benchmarks/V8Benchmark*"
     systemProperty 'rhino.benchmark.report', "${buildDir.absolutePath}"
     systemProperty 'file.encoding', 'UTF-8'
@@ -76,16 +77,18 @@ task v8Benchmark(type: Test) {
     forkEvery = 1
 }
 
-task testBenchmark() {}
-testBenchmark.dependsOn sunSpiderBenchmark
-testBenchmark.dependsOn v8Benchmark
-
-task microBenchmark(type: JavaExec) {
-    main "com.google.caliper.runner.CaliperMain"
-    args "-i", "runtime", "org.mozilla.javascript.benchmarks.CaliperObjectBenchmark.FieldAccess", "-DstringKeys=100,1000", "-DintKeys=100,1000"
-    classpath sourceSets.test.runtimeClasspath
+tasks.register("testBenchmark") {
+    dependsOn "sunSpiderBenchmark", "v8Benchmark"
 }
 
+tasks.register("microBenchmark", JavaExec) {
+    mainClass = "com.google.caliper.runner.CaliperMain"
+    args "-i", "runtime",
+            "org.mozilla.javascript.benchmarks.CaliperObjectBenchmark.FieldAccess",
+            "-DstringKeys=100,1000",
+            "-DintKeys=100,1000"
+    classpath = sourceSets.test.runtimeClasspath
+}
 
 idea {
     module {
@@ -117,37 +120,37 @@ jar {
     }
 }
 
-
-
 javadoc {
     options.addBooleanOption("-allow-script-in-comments", true)
     options.addStringOption('Xdoclint:html', '-quiet')
-
 }
 
-task javadocJar(type: Jar) {
-    classifier = 'javadoc'
+tasks.register("javadocJar", Jar) {
+    dependsOn javadoc
+    archiveClassifier = 'javadoc'
     from javadoc
 }
 
-
-task sourceJar(type: Jar) {
+tasks.register("sourceJar", Jar) {
+    archiveClassifier = 'sources'
     from sourceSets.main.allJava
 }
 
-
 publishing {
     publications {
-        rhino(MavenPublication) {
-            groupId 'com.chattriggers'
-            artifactId 'rhino'
+        create("rhino", MavenPublication) {
+            groupId = 'com.chattriggers'
+            artifactId = 'rhino'
+
+            from components.java
+            artifact(tasks.named("sourceJar"))
+            artifact(tasks.named("javadocJar"))
 
             pom.withXml {
                 def root = asNode()
-
                 root.appendNode('description', """
-    Rhino is an open-source implementation of JavaScript written entirely in Java.
-    It is typically embedded into Java applications to provide scripting to end users.
+Rhino is an open-source implementation of JavaScript written entirely in Java.
+It is typically embedded into Java applications to provide scripting to end users.
 """)
                 root.appendNode("url", "https://developer.mozilla.org/en/Rhino")
 
@@ -163,14 +166,6 @@ publishing {
                 def o = root.appendNode("organization")
                 o.appendNode("name", "ChatTriggers")
                 o.appendNode("url", "https://www.chattriggers.com/")
-
-            }
-            from components.java
-            artifact sourceJar {
-                classifier "sources"
-            }
-            artifact javadocJar {
-                classifier "javadoc"
             }
         }
     }
@@ -178,10 +173,10 @@ publishing {
     if (project.hasProperty("nexus_user") && !project.version.endsWith('-SNAPSHOT')) {
         repositories {
             maven {
-                url "https://repo.sk1er.club/repository/maven-releases/"
+                url = uri("https://repo.sk1er.club/repository/maven-releases/")
                 credentials {
-                    username nexus_user
-                    password nexus_password
+                    username = nexus_user
+                    password = nexus_password
                 }
             }
         }
@@ -192,51 +187,39 @@ jacoco {
     toolVersion = "0.8.3"
 }
 
-//spotbugs {
-//    toolVersion = "3.1.12"
-//    effort = "min"
-//    reportLevel = "high"
-//    sourceSets = [sourceSets.main]
-//    excludeFilter = file("./spotbugs-exclude.xml")
-//}
-
-jacocoTestReport.dependsOn test
 jacocoTestReport {
+    dependsOn test
     reports {
-        html.destination file("${buildDir}/jacocoHtml")
+        html.required = true
+        html.outputLocation = file("${buildDir}/jacocoHtml")
     }
 }
-
-//checkstyle {
-//    configFile = file("${projectDir}/checkstyle.xml")
-//    sourceSets = [project.sourceSets.main]
-//}
 
 distributions {
     main {
         contents {
             from(sourceSets.main.java) {
                 exclude 'man'
-                into 'rhino' + project.version + '/src'
+                into "rhino${project.version}/src"
             }
             from(sourceSets.main.resources) {
                 exclude '**/*.java'
-                into 'rhino' + project.version + '/src'
+                into "rhino${project.version}/src"
             }
             from(javadoc.destinationDir) {
-                into 'rhino' + project.version + '/docs'
+                into "rhino${project.version}/docs"
             }
             from(jar.outputs.files) {
-                into 'rhino' + project.version + '/lib'
+                into "rhino${project.version}/lib"
             }
             from(sourceSets.main.allSource) {
                 include 'man/*.1'
-                into 'rhino' + project.version
+                into "rhino${project.version}"
             }
             from(file(".")) {
                 include '*.txt', '*.md', 'build.gradle', 'build.properties', 'gradle.properties',
                         'gradle/**', 'gradlew'
-                into 'rhino' + project.version
+                into "rhino${project.version}"
             }
             into "/"
         }
@@ -244,3 +227,4 @@ distributions {
 }
 
 distZip.dependsOn javadoc, jar
+distTar.dependsOn javadoc, jar

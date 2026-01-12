@@ -4908,8 +4908,8 @@ Else pass the JS object in the aReg and 0.0 in the dReg.
                         addDoubleWrap();
                     cfw.addALoad(contextLocal);
                     cfw.addALoad(variableObjectLocal);
-                    cfw.addPush(isPrivate);
-                    addScriptRuntimeInvoke("getElemFunctionAndThis", CALLABLE, OBJECT, OBJECT, CONTEXT, SCRIPTABLE, BOOLEAN);
+//                    cfw.addPush(isPrivate);
+                    addScriptRuntimeInvoke("getElemFunctionAndThis", CALLABLE, OBJECT, OBJECT, CONTEXT, SCRIPTABLE);
                 }
 
                 break;

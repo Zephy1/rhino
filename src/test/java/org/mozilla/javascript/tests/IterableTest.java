@@ -186,7 +186,7 @@ public class IterableTest extends TestCase {
         }
     }
 
-    //Explicitly not a ScriptableObject
+    // Explicitly not a ScriptableObject
     public static class FooBoilerplate implements Scriptable {
         protected final Scriptable scope;
 
@@ -197,6 +197,11 @@ public class IterableTest extends TestCase {
         @Override
         public String getClassName() {
             return this.getClass().getSimpleName();
+        }
+
+        @Override
+        public Object get(String name, Scriptable start, boolean isPrivate) {
+            return null;
         }
 
         @Override
@@ -235,6 +240,11 @@ public class IterableTest extends TestCase {
         @Override
         public boolean has(int index, Scriptable start) {
             throw new UnsupportedOperationException("Not supported yet.");
+        }
+
+        @Override
+        public void put(String name, Scriptable start, Object value, boolean isPrivate) {
+
         }
 
         @Override
@@ -290,7 +300,6 @@ public class IterableTest extends TestCase {
     }
 
     public static class SymbolFooBoilerplate extends FooBoilerplate implements SymbolScriptable {
-
         public SymbolFooBoilerplate(final Scriptable scope) {
             super(scope);
         }
@@ -315,5 +324,14 @@ public class IterableTest extends TestCase {
             throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
         }
 
+        @Override
+        public Object get(String name, Scriptable start, boolean isPrivate) {
+            return null;
+        }
+
+        @Override
+        public void put(String name, Scriptable start, Object value, boolean isPrivate) {
+
+        }
     }
 }
